@@ -4,6 +4,13 @@ import lzma
 import os
 import pickle
 import urllib.request
+import sklearn.compose
+import sklearn.datasets
+import sklearn.model_selection
+import sklearn.pipeline
+import sklearn.preprocessing
+import sklearn.linear_model
+import sklearn.metrics
 
 import numpy as np
 
@@ -52,9 +59,33 @@ def main(args: argparse.Namespace):
         # We are training a model.
         np.random.seed(args.seed)
         train = Dataset()
+        data = np.concatenate((train.data, np.ones([train.data.shape[0], 1])), axis=1)
+        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(data,train.target, test_size=0., random_state=args.seed)
+        one_hot = sklearn.preprocessing.OneHotEncoder(handle_unknown="ignore")
+        standar_scaler = sklearn.preprocessing.StandardScaler()
+        column_enc = sklearn.compose.ColumnTransformer(
+            [
+                ("one_hot", one_hot, slice(0, 8)), 
+                ("standar_scaler", standar_scaler, slice(8, X_test.shape[1]))
+            ]
+        )
+        lambdas = np.geomspace(0.01, 10, num=500)
+        tranformer = column_enc.fit(X_train)
+        best_lambda = None
+        best_rmse = None
+        rmses = []
+        for l in lambdas:
+            model = sklearn.linear_model.SGDRegressor(alpha=l).fit(tranformer.transform(X_train), y_train)
+            prediction = model.predict(tranformer.transform(X_test))
+            rmse = sklearn.metrics.mean_squared_error(prediction, y_test, squared=False)
+            if(best_rmse == None or best_rmse > rmse):
+                best_rmse = rmse
+                best_lambda = l
+            rmses.append(l)
 
-        # TODO: Train a model on the given dataset and store it in `model`.
-        model = None
+        print(best_rmse)
+        enc = sklearn.pipeline.Pipeline([("column", column_enc), ("regression", sklearn.linear_model.SGDRegressor(alpha=best_lambda))] )
+        model = enc.fit(X_train, y_train)
 
         # Serialize the model.
         with lzma.open(args.model_path, "wb") as model_file:
@@ -63,12 +94,14 @@ def main(args: argparse.Namespace):
     else:
         # Use the model and return test set predictions, as either a Python list or a NumPy array.
         test = Dataset(args.predict)
+        data = np.concatenate((test.data, np.ones([test.data.shape[0], 1])), axis=1)
 
         with lzma.open(args.model_path, "rb") as model_file:
             model = pickle.load(model_file)
 
         # TODO: Generate `predictions` with the test set predictions.
-        predictions = None
+        predictions = model.predict(data)
+
 
         return predictions
 

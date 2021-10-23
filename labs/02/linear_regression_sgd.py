@@ -2,6 +2,8 @@
 import argparse
 
 import numpy as np
+from numpy.core.arrayprint import _leading_trailing
+import scipy
 import sklearn.datasets
 import sklearn.linear_model
 import sklearn.metrics
@@ -28,11 +30,13 @@ def main(args: argparse.Namespace) -> tuple[float, float]:
     data, target = sklearn.datasets.make_regression(n_samples=args.data_size, random_state=args.seed)
 
     # TODO: Append a constant feature with value 1 to the end of every input data
+    data = np.concatenate((data.data, np.ones([data.shape[0], 1])), axis=1)
+
 
     # TODO: Split the dataset into a train set and a test set.
     # Use `sklearn.model_selection.train_test_split` method call, passing
     # arguments `test_size=args.test_size, random_state=args.seed`.
-    train_data, test_data, train_target, test_target = None, None, None, None
+    train_data, test_data, train_target, test_target = sklearn.model_selection.train_test_split(data, target, test_size=args.test_size, random_state=args.seed)
 
     # Generate initial linear regression weights
     weights = generator.uniform(size=train_data.shape[1])
@@ -47,12 +51,25 @@ def main(args: argparse.Namespace) -> tuple[float, float]:
         # and the SGD update is
         #   weights = weights - args.learning_rate * (gradient + args.l2 * weights)`.
         # You can assume that `args.batch_size` exactly divides `train_data.shape[0]`.
+        for i in range(train_data.shape[0]//args.batch_size):
+            gradient = np.zeros(train_data.shape[1]);
+            for row in permutation[i*args.batch_size: (i+1)*args.batch_size]:
+                gradient += (np.transpose(train_data[row]) @ weights - train_target[row]) * train_data[row]
+            gradient = gradient/args.batch_size
+            weights = weights = weights - args.learning_rate * (gradient + args.l2 * weights )
+
+
 
         # TODO: Append current RMSE on train/test to train_rmses/test_rmses.
+        prediction_train = train_data @ weights 
+        prediction_test = test_data @ weights
+        train_rmses.append(sklearn.metrics.mean_squared_error(prediction_train, train_target, squared=False))
+        test_rmses.append(sklearn.metrics.mean_squared_error(prediction_test, test_target, squared=False))
 
     # TODO: Compute into `explicit_rmse` test data RMSE when fitting
     # `sklearn.linear_model.LinearRegression` on train_data (ignoring args.l2).
-    explicit_rmse = None
+    model = sklearn.linear_model.LinearRegression().fit(train_data, train_target)
+    explicit_rmse = sklearn.metrics.mean_squared_error(model.predict(test_data), test_target, squared=False)
 
     if args.plot:
         import matplotlib.pyplot as plt

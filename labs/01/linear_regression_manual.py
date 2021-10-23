@@ -22,19 +22,24 @@ def main(args: argparse.Namespace) -> float:
     # If you want to learn about the dataset, you can print some information
     # about it using `print(dataset.DESCR)`.
 
-    # TODO: Append a new feature to all input data, with value "1"
+    data = np.concatenate((dataset.data, np.ones([dataset.data.shape[0], 1])), axis=1)
+
 
     # TODO: Split the dataset into a train set and a test set.
     # Use `sklearn.model_selection.train_test_split` method call, passing
     # arguments `test_size=args.test_size, random_state=args.seed`.
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(data, dataset.target, test_size=args.test_size, random_state=args.seed)
 
     # TODO: Solve the linear regression using the algorithm from the lecture,
     # explicitly computing the matrix inverse (using `np.linalg.inv`).
+    w = np.linalg.inv(np.transpose(X_train) @ X_train) @ np.transpose(X_train) @ y_train
 
     # TODO: Predict target values on the test set.
+    values = X_test @ w
 
     # TODO: Compute root mean square error on the test set predictions.
-    rmse = None
+    rmse = np.sqrt((np.transpose(values - y_test) @ (values - y_test))/y_test.shape[0]
+    )
 
     return rmse
 

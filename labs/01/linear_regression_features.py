@@ -20,26 +20,36 @@ def main(args: argparse.Namespace) -> list[float]:
     # Create the data
     xs = np.linspace(0, 7, num=args.data_size)
     ys = np.sin(xs) + np.random.RandomState(args.seed).normal(0, 0.2, size=args.data_size)
+    data = []
 
     rmses = []
     for order in range(1, args.range + 1):
         # TODO: Create features (x^1, x^2, ..., x^order), preferably in this ordering.
         # Note you can just append x^order to the features from the previous iteration.
+        if(order > 1):
+            data = np.concatenate([data, np.power(xs, order).reshape(-1,1)], axis=1)
+        else:
+            data = np.power(xs, order).reshape(-1,1)
+
+        
 
         # TODO: Split the data into a train set and a test set.
         # Use `sklearn.model_selection.train_test_split` method call, passing
         # arguments `test_size=args.test_size, random_state=args.seed`.
+        train_data, test_data, train_target, test_target = sklearn.model_selection.train_test_split(data, ys, test_size=args.test_size, random_state=args.seed)
 
         # TODO: Fit a linear regression model using `sklearn.linear_model.LinearRegression`;
         # consult documentation and see especially the `fit` method.
-        model = None
+        model = sklearn.linear_model.LinearRegression().fit(train_data, train_target)
 
         # TODO: Predict targets on the test set using the `predict` method of the trained model.
+        targets = model.predict(test_data)
 
         # TODO: Compute root mean square error on the test set predictions.
         # You can either do it manually or look at `sklearn.metrics.mean_squared_error` method
         # and its `squared` parameter.
-        rmse = None
+        rmse = np.linalg.norm(targets - test_target)/test_target.shape[0]
+        rmse = sklearn.metrics.mean_squared_error(test_target, targets, squared=False)
 
         rmses.append(rmse)
 
@@ -48,7 +58,7 @@ def main(args: argparse.Namespace) -> list[float]:
             if args.plot is not True:
                 if not plt.gcf().get_axes(): plt.figure(figsize=(6.4*3, 4.8*3))
                 plt.subplot(3, 3, 1 + len(plt.gcf().get_axes()))
-            plt.plot(train_data[:, 0], train_target, "go")
+            plt.plot(train_data[:, 0], train_target, ugo")
             plt.plot(test_data[:, 0], test_target, "ro")
             plt.plot(np.linspace(xs[0], xs[-1], num=100),
                      model.predict(np.stack([np.linspace(xs[0], xs[-1], num=100)**order for order in range(1, order + 1)], axis=1)), "b")

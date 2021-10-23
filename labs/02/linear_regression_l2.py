@@ -18,10 +18,12 @@ parser.add_argument("--test_size", default=0.5, type=lambda x:int(x) if x.isdigi
 def main(args: argparse.Namespace) -> tuple[float, float]:
     # Load the Diabetes dataset
     dataset = sklearn.datasets.load_diabetes()
+    data = np.concatenate((dataset.data, np.ones([dataset.data.shape[0], 1])), axis=1)
 
     # TODO: Split the dataset into a train set and a test set.
     # Use `sklearn.model_selection.train_test_split` method call, passing
     # arguments `test_size=args.test_size, random_state=args.seed`.
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(data, dataset.target, test_size=args.test_size, random_state=args.seed)
 
     lambdas = np.geomspace(0.01, 10, num=500)
     # TODO: Using `sklearn.linear_model.Ridge`, fit the train set using
@@ -30,6 +32,18 @@ def main(args: argparse.Namespace) -> tuple[float, float]:
     # lambda producing lowest RMSE and the corresponding RMSE.
     best_lambda = None
     best_rmse = None
+    rmses = []
+    for l in lambdas:
+        prediction = sklearn.linear_model.Ridge(alpha=l).fit(X_train, y_train).predict(X_test)
+        rmse = sklearn.metrics.mean_squared_error(prediction, y_test, squared=False)
+        if(best_rmse == None or best_rmse > rmse):
+            best_rmse = rmse
+            best_lambda = l
+        rmses.append(rmse)
+
+
+
+
 
     if args.plot:
         # This block is not required to pass in ReCodEx, however, it is useful
