@@ -4,6 +4,13 @@ import lzma
 import os
 import pickle
 import urllib.request
+import sklearn.compose
+import sklearn.datasets
+import sklearn.model_selection
+import sklearn.pipeline
+import sklearn.preprocessing
+import sklearn.linear_model
+import sklearn.metrics
 
 import numpy as np
 
@@ -48,6 +55,31 @@ def main(args: argparse.Namespace):
 
         # TODO: Train a model on the given dataset and store it in `model`.
         model = None
+        one_hot = sklearn.preprocessing.OneHotEncoder(handle_unknown="ignore")
+        standar_scaler = sklearn.preprocessing.StandardScaler()
+        column_enc = sklearn.compose.ColumnTransformer(
+            [
+                ("one_hot", one_hot, slice(0, 15)), 
+                ("standar_scaler", standar_scaler, slice(15, train.data.shape[1]))
+            ]
+        )
+        pipe = sklearn.pipeline.Pipeline([
+            ("column_enc", column_enc),
+            ("polynomial", sklearn.preprocessing.PolynomialFeatures()),
+            ("regression", sklearn.linear_model.LogisticRegression(random_state=args.seed, max_iter=10000))
+            ])
+
+        
+        grid = sklearn.model_selection.GridSearchCV(pipe, [{
+            'polynomial__degree': [1, 2],
+            'regression__C': [0.01, 1, 100]
+        }],
+        cv=2)
+        model =  grid.fit(train.data, train.target)
+        results = model.predict(train.data)
+        test_accuracy = 1 - np.sum(( np.abs(results - train.target)))/train.target.shape[0]
+
+
 
         # Serialize the model.
         with lzma.open(args.model_path, "wb") as model_file:
@@ -61,7 +93,7 @@ def main(args: argparse.Namespace):
             model = pickle.load(model_file)
 
         # TODO: Generate `predictions` with the test set predictions.
-        predictions = None
+        predictions = model.predict(test.data)
 
         return predictions
 

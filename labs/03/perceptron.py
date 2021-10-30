@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import sys
+from textwrap import indent
 
 import numpy as np
 import sklearn.datasets
@@ -24,6 +25,8 @@ def main(args: argparse.Namespace) -> np.ndarray:
     target = 2 * target - 1
 
     # TODO: Append a constant feature with value 1 to the end of every input data
+    data = np.concatenate((data, np.ones([data.shape[0], 1])), axis=1)
+
 
     # Generate initial perceptron weights
     weights = np.zeros(data.shape[1])
@@ -37,6 +40,13 @@ def main(args: argparse.Namespace) -> np.ndarray:
         # training data iteration, perform the required updates to the `weights`
         # for incorrectly classified examples. If all training instances are
         # correctly classified, set `done=True`, otherwise set `done=False`.
+        done = True
+        for index in permutation:
+            y = np.transpose(data[index]) @ weights
+            if(target[index] * y <= 0):
+                weights += target[index]*data[index]
+                done = False
+
 
         if args.plot and not done:
             import matplotlib.pyplot as plt
