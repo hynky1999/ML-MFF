@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import sys
 
 import numpy as np
 import sklearn.datasets
@@ -46,7 +45,7 @@ def main(args: argparse.Namespace) -> float:
 
     #
     # Then, using sklearn.model_selection.StratifiedKFold(5), evaluate crossvalidated
-    # train performance of all combinations of the the following parameters:
+    # train performance of all combinations of the following parameters:
     # - polynomial degree: 1, 2
     # - LogisticRegression regularization C: 0.01, 1, 100
     # - LogisticRegression solver: lbfgs, sag

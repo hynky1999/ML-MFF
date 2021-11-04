@@ -92,7 +92,7 @@ def main(args: argparse.Namespace):
             pickle.dump(model, model_file)
 
     else:
-        # Use the model and return test set predictions, as either a Python list or a NumPy array.
+        # Use the model and return test set predictions, either as a Python list or a NumPy array.
         test = Dataset(args.predict)
         data = np.concatenate((test.data, np.ones([test.data.shape[0], 1])), axis=1)
 

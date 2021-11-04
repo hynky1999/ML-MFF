@@ -11,32 +11,29 @@ import sklearn.pipeline
 import sklearn.preprocessing
 import sklearn.linear_model
 import sklearn.metrics
+import sklearn.neural_network
 
 import numpy as np
 
 class Dataset:
-    """Thyroid Dataset.
+    """MNIST Dataset.
 
-    The dataset contains real medical data related to thyroid gland function,
-    classified either as normal or irregular (i.e., some thyroid disease).
-    The data consists of the following features in this order:
-    - 15 binary features
-    - 6 real-valued features
-
-    The target variable is binary, with 1 denoting a thyroid disease and
-    0 normal function.
+    The train set contains 60000 images of handwritten digits. The data
+    contain 28*28=784 values in range 0-255, the targets are numbers 0-9.
     """
     def __init__(self,
-                 name="thyroid_competition.train.npz",
+                 name="mnist.train.npz",
+                 data_size=None,
                  url="https://ufal.mff.cuni.cz/~straka/courses/npfl129/2122/datasets/"):
         if not os.path.exists(name):
             print("Downloading dataset {}...".format(name))
             urllib.request.urlretrieve(url + name, filename=name)
 
-        # Load the dataset and return the data and targets.
+        # Load the dataset, i.e., `data` and optionally `target`.
         dataset = np.load(name)
         for key, value in dataset.items():
-            setattr(self, key, value)
+            setattr(self, key, value[:data_size])
+        self.data = self.data.reshape([-1, 28*28]).astype(np.float)
 
 
 parser = argparse.ArgumentParser()
@@ -45,7 +42,7 @@ parser.add_argument("--predict", default=None, type=str, help="Run prediction on
 parser.add_argument("--recodex", default=False, action="store_true", help="Running in ReCodEx")
 parser.add_argument("--seed", default=42, type=int, help="Random seed")
 # For these and any other arguments you add, ReCodEx will keep your default value.
-parser.add_argument("--model_path", default="thyroid_competition.model", type=str, help="Model path")
+parser.add_argument("--model_path", default="mnist_competition.model", type=str, help="Model path")
 
 def main(args: argparse.Namespace):
     if args.predict is None:
@@ -54,32 +51,37 @@ def main(args: argparse.Namespace):
         train = Dataset()
 
         # TODO: Train a model on the given dataset and store it in `model`.
-        model = None
-        one_hot = sklearn.preprocessing.OneHotEncoder(handle_unknown="ignore")
-        standar_scaler = sklearn.preprocessing.StandardScaler()
-        column_enc = sklearn.compose.ColumnTransformer(
-            [
-                ("one_hot", one_hot, slice(0, 15)), 
-                ("standar_scaler", standar_scaler, slice(15, train.data.shape[1]))
-            ]
-        )
         pipe = sklearn.pipeline.Pipeline([
-            ("column_enc", column_enc),
-            ("polynomial", sklearn.preprocessing.PolynomialFeatures()),
-            ("regression", sklearn.linear_model.LogisticRegression(random_state=args.seed, max_iter=10000))
+            ("scaler", sklearn.preprocessing.StandardScaler()),
+            ("MLP", sklearn.neural_network.MLPClassifier(hidden_layer_sizes=[20], verbose=True, max_iter=100))
             ])
-
         
         grid = sklearn.model_selection.GridSearchCV(pipe, [{
-            'polynomial__degree': [1, 2],
-            'regression__C': [0.01, 1, 100]
+            'MLP__hidden_layer_sizes' : [[10], [20], [30]],
+            'MLP__alpha' : [0.0001, 0.001, 0.1]
         }],
-        cv=2)
+        cv=3,
+        verbose=3)
+
         model =  grid.fit(train.data, train.target)
-        results = model.predict(train.data)
-        test_accuracy = 1 - np.sum(( np.abs(results - train.target)))/train.target.shape[0]
+        def compute_prediction(prediction, target):
+            matched = 0
+            for i in range(prediction.shape[0]):
+                if(prediction[i] == target[i]):
+                    matched += 1
 
+            return matched/prediction.shape[0]
 
+        test_accuracy = compute_prediction(model.predict(train.data), train.target)
+        print(model.get_params())
+        print(test_accuracy)
+
+        # If you trained one or more MLPs, you can use the following code
+        # to compress it significantly (approximately 12 times). The snippet
+        # assumes the trained MLPClassifier is in `mlp` variable.
+        # mlp._optimizer = None
+        # for i in range(len(mlp.coefs_)): mlp.coefs_[i] = mlp.coefs_[i].astype(np.float16)
+        # for i in range(len(mlp.intercepts_)): mlp.intercepts_[i] = mlp.intercepts_[i].astype(np.float16)
 
         # Serialize the model.
         with lzma.open(args.model_path, "wb") as model_file:

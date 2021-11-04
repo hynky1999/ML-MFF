@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 import argparse
+<<<<<<< HEAD
 import sys
 from textwrap import indent
+=======
+>>>>>>> 1dbc29df42f0e58ea306e90b5bdded22038bc211
 
 import numpy as np
 import sklearn.datasets
