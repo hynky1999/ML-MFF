@@ -103,7 +103,7 @@ def main(args: argparse.Namespace) -> float:
     # The weighting can be:
     # - "uniform": all nearest neighbors have the same weight
     # - "inverse": `1/distances` is used as weights
-    # - "softmax": `softmax(-distances)` is uses as weights
+    # - "softmax": `softmax(-distances)` is used as weights
     #
 
     # If you want to plot misclassified examples, you need to also fill `test_neighbors`
