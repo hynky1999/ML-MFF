@@ -1,26 +1,63 @@
 #!/usr/bin/env python3
+#
+# All team solutions **must** list **all** members of the team.
+# The members must be listed using their ReCodEx IDs anywhere
+# in a comment block in the source file (on a line beginning with `#`).
+#
+# You can find out ReCodEx ID in the URL bar after navigating
+# to your User profile page. The ID has the following format:
+# 01234567-89ab-cdef-0123-456789abcdef.
+
+
+# Authors:
+#
+# Hynek Kydlicek
+# bb506e12-05bd-11eb-9574-ea7484399335
+#
+#
+# Ondrej Krsicka
+# 7360531e-00a2-11eb-9574-ea7484399335
 import argparse
 import lzma
 import pickle
 import os
 import urllib.request
-from numpy.core.defchararray import isalpha
 import sklearn.compose
 import sklearn.datasets
 import sklearn.model_selection
 import sklearn.pipeline
 import sklearn.preprocessing
 import sklearn.linear_model
+import sklearn.neural_network
 import sklearn.metrics
+from diacritization_eval import accuracy
 
 import numpy as np
+import re
+
+
+
+
+
+
+def diac_to_numbers(l):
+    if l in "áéíóúý":
+        return 1
+    if l in "čďěňřšťůž":
+        return 2
+    return 0
+
+translate_carka = str.maketrans("aeiouy", "áéíóúý")
+translate_hacek = str.maketrans("cdenrstuz", "čďěňřšťůž")
+
 
 class Dataset:
     LETTERS_NODIA = "acdeeinorstuuyz"
     LETTERS_DIA = "áčďéěíňóřšťúůýž"
 
     # A translation table usable with `str.translate` to rewrite characters with dia to the ones without them.
-    DIA_TO_NODIA = str.maketrans(LETTERS_DIA + LETTERS_DIA.upper(), LETTERS_NODIA + LETTERS_NODIA.upper())
+    DIA_TO_NODIA = str.maketrans(
+        LETTERS_DIA + LETTERS_DIA.upper(), LETTERS_NODIA + LETTERS_NODIA.upper())
 
     def __init__(self,
                  name="fiction-train.txt",
@@ -28,7 +65,8 @@ class Dataset:
         if not os.path.exists(name):
             print("Downloading dataset {}...".format(name))
             urllib.request.urlretrieve(url + name, filename=name)
-            urllib.request.urlretrieve(url + name.replace(".txt", ".LICENSE"), filename=name.replace(".txt", ".LICENSE"))
+            urllib.request.urlretrieve(
+                url + name.replace(".txt", ".LICENSE"), filename=name.replace(".txt", ".LICENSE"))
 
         # Load the dataset and split it into `data` and `target`.
         with open(name, "r", encoding="utf-8-sig") as dataset_file:
@@ -36,153 +74,120 @@ class Dataset:
         self.data = self.target.translate(self.DIA_TO_NODIA)
 
 
+def prepare_data(unprepared_data, unprepared_target, allowed_letters, k):
+    unprepared_data = str.translate(unprepared_data, str.maketrans('\n\0\t', "   ")).lower()
+    unprepared_target = unprepared_target.lower()
 
-def translate_neigh(neigh, k):
+    data_text_vector = np.array(list(unprepared_data)).reshape([-1, 1])
+    data_matrix = data_text_vector
 
-    data_left = np.array(list(neigh[0:k]))
-    data_left = np.where(np.char.isalpha(data_left), data_left.view(dtype=np.int32), 0)
+    # left side
+    for i in range(k):
+        left_side = np.pad(np.delete(data_matrix[:, 0], [-i -1]), (1, 0), constant_values=(
+            ' ', ' '), mode='constant',).reshape([-1, 1])
+        data_matrix = np.concatenate([data_matrix, left_side], axis=1)
 
-
-    data_right = np.array(list(neigh[k+1:]))
-    data_right = np.where(np.char.isalpha(data_right), data_right.view(dtype=np.int32), 0)
-
-    last_space_i = np.argmin(data_left[::-1])
-    data_left = np.concatenate([np.zeros([k-last_space_i]), data_left[k-last_space_i:]])
-    first_space_i = np.argmin(data_right)
-    data_right = np.concatenate([ data_right[:first_space_i], np.zeros([k-first_space_i])])
-
-
-    return np.concatenate([data_left, np.array([neigh[k]]).view(dtype=np.int32), data_right, [0]])
-
-def prepare_data(unprepared_data, target_data, allowed_letters, k):
-    data = np.empty([0, 2*k+2])
-    target = np.empty([0])
-    # We don't want to recalculate index
-    unprepared_data = k*" " + unprepared_data + k*" "
-    target_data = k*" " + target_data + k*" "
-    word_length = 0
-    for i in range(len(unprepared_data)):
-        print(i)
-        if not isalpha(unprepared_data[i]):
-            if(word_length > 0):
-                data[-word_length:, -1] = word_length
-                word_length = 0
-
-        else:
-            word_length += 1
+        right_side = np.pad(np.delete(
+            data_matrix[:, 0], [i]), (0, 1), constant_values=(' ', ' '), mode='constant',).reshape([-1, 1])
+        data_matrix = np.concatenate([data_matrix, right_side], axis=1)
 
 
+    indicies = []
+    for i, letter in enumerate(data_matrix[:,0]):
+        if letter in allowed_letters:
+            indicies.append(i)
 
-        if not unprepared_data[i] in allowed_letters:
-            continue
 
-        # Only alpha chars and zeros
-        row = translate_neigh(unprepared_data[i-k:i+k+1], k)
-        data = np.concatenate([data, row.reshape([1,-1])], axis=0)
-        target = np.concatenate([target, np.array([target_data[i]]).view(dtype=np.int32)])
+    data_matrix = data_matrix[indicies].reshape([-1, 2*k+1]).view(np.int32)
 
-    return data, target
-        
 
-        
-def predict_word(model, word_buffer, data, allowed_letters, k):
-    word = []
-    for index in word_buffer:
-        if not data[index] in allowed_letters:
-            word.append(data[index])
-        else:
-            translated_dato = translate_neigh(data[index-k: index+k+1],k)
-            translated_dato[k*2 + 1] = len(word_buffer)
-            prediction = chr(int(model.predict(translated_dato.reshape([1,-1]))))
-            word.append(prediction)
-    return word
-        
+    if(len(unprepared_target) != len(unprepared_data)):
+        return data_matrix
 
+    target_text_vector = np.array(list(unprepared_target)).reshape([-1, 1])
+    target_vector = target_text_vector[indicies, [0]]
+    for i,dato in enumerate(target_vector):
+        target_vector[i] = diac_to_numbers(dato)
+    target_vector = target_vector.reshape(-1, 1)
+
+    return data_matrix, target_vector
 
 
 def predict(model, data, allowed_letters, k):
     prediction = []
-    word_buffer = []
+    diac_predictions = model.predict(
+        prepare_data(data, [], allowed_letters, k))
 
-    data = k*" " + data + k*" "
-    for i in range(len(data)):
-        if not isalpha(data[i]):
-            if(len(word_buffer) > 0):
-                prediction.extend(predict_word(model, word_buffer, data, allowed_letters, k))
-                word_buffer = []
+    diac_index = 0
+    for letter in data:
+        pred_letter = letter
+        if letter.lower() in allowed_letters:
+            if diac_predictions[diac_index] == 1:
+                pred_letter = str.translate(letter, translate_carka)
+            if diac_predictions[diac_index] == 2:
+                pred_letter = str.translate(letter, translate_hacek)
 
-            prediction.append(data[i])
-            continue
+            if letter.isupper():
+                pred_letter = pred_letter.upper()
+            diac_index += 1
 
-        word_buffer.append(i)
-    return ''.join(prediction[k:-k])
-    
+        prediction.append(pred_letter)
 
-    
-    
+    return ''.join(prediction)
+
 
 parser = argparse.ArgumentParser()
 # These arguments will be set appropriately by ReCodEx, even if you change them.
-parser.add_argument("--predict", default=None, type=str, help="Run prediction on given data")
-parser.add_argument("--recodex", default=False, action="store_true", help="Running in ReCodEx")
+parser.add_argument("--predict", default=None, type=str,
+                    help="Run prediction on given data")
+parser.add_argument("--recodex", default=False,
+                    action="store_true", help="Running in ReCodEx")
 parser.add_argument("--seed", default=42, type=int, help="Random seed")
 # For these and any other arguments you add, ReCodEx will keep your default value.
-parser.add_argument("--model_path", default="diacritization.model", type=str, help="Model path")
+parser.add_argument(
+    "--model_path", default="diacritization.model", type=str, help="Model path")
+
 
 def main(args: argparse.Namespace):
-    neigh_size = 2
+    neigh_size = 4
 
     if args.predict is None:
         # We are training a model.
         np.random.seed(args.seed)
         train = Dataset()
-        transformed_data_file_name = "transformed_data.txt"
-        transformed_target_file_name = "transformed_target.txt"
-
-
-        data = None
-        target = None
         data_selection = slice(0, len(train.data))
-        test_selection = slice(60000,70000)
-        if not os.path.exists(transformed_data_file_name):
-            data, target = prepare_data(train.data[data_selection], train.target[data_selection],Dataset.LETTERS_DIA + Dataset.LETTERS_NODIA, neigh_size,)
-            with lzma.open(transformed_data_file_name, "wb") as data_file:
-                pickle.dump(data, data_file)
-
-            with lzma.open(transformed_target_file_name, "wb") as target_file:
-                pickle.dump(target, target_file)
-
-        else:
-            with lzma.open(transformed_data_file_name, "rb") as data_file:
-                data = pickle.load(data_file)
-
-            with lzma.open(transformed_target_file_name, "rb") as target_file:
-                target = pickle.load(target_file)
+        test_selection = slice(0, len(train.data))
+        data, target = prepare_data(
+            train.data[data_selection], train.target[data_selection], Dataset.LETTERS_NODIA, neigh_size,)
 
         one_hot = sklearn.preprocessing.OneHotEncoder(handle_unknown="ignore")
-        standar_scaler = sklearn.preprocessing.StandardScaler()
         column_enc = sklearn.compose.ColumnTransformer(
             [
-                ("one_hot", one_hot, slice(0, neigh_size+1)), 
-                ("standar_scaler", standar_scaler, slice(neigh_size+1, neigh_size+2))
+                ("one_hot", one_hot, slice(0, 2*neigh_size+1)),
             ]
         )
         pipe = sklearn.pipeline.Pipeline([
             ("column_enc", column_enc),
-            ("polynomial", sklearn.preprocessing.PolynomialFeatures()),
-            ("regression", sklearn.linear_model.LogisticRegression(random_state=args.seed, max_iter=150, multi_class="multinomial", verbose=True))
-            ])
+            ("MLP", sklearn.neural_network.MLPClassifier(max_iter=200, verbose=True, hidden_layer_sizes=[20]))
+        ])
+
+        # grid = sklearn.model_selection.GridSearchCV(pipe, [{
+        #     'MLP__hidden_layer_sizes' : [[700], [1000], [1500]],
+        # }],
+        # cv=3,
+        # verbose=1)
+
+        model = pipe.fit(data, target)
+
+
+
+        # mlp = model.best_estimator_["MLP"]
+        # USE ABOVE WITH GRID
+        mlp = model["MLP"]
+        mlp._optimizer = None
+        for i in range(len(mlp.coefs_)): mlp.coefs_[i] = mlp.coefs_[i].astype(np.float16)
+        for i in range(len(mlp.intercepts_)): mlp.intercepts_[i] = mlp.intercepts_[i].astype(np.float16)
         
-        grid = sklearn.model_selection.GridSearchCV(pipe, [{
-            'polynomial__degree': [1, 2],
-            'regression__C': [0.01, 1, 100]
-        }], cv=3, verbose=3)
-
-        model = grid.fit(data, target)
-        predictions = predict(model, train.data[test_selection], Dataset.LETTERS_DIA + Dataset.LETTERS_NODIA, neigh_size)
-        print(accuracy(train.target[test_selection] ,predictions))
-
-
         # TODO: Train a model on the given dataset and store it in `model`.
         # Serialize the model.
         with lzma.open(args.model_path, "wb") as model_file:
@@ -197,7 +202,10 @@ def main(args: argparse.Namespace):
 
         # TODO: Generate `predictions` with the test set predictions. Specifically,
         # produce a diacritized `str` with exactly the same number of words as `test.data`.
-        predictions = predict(model, test.data, Dataset.LETTERS_DIA + Dataset.LETTERS_NODIA, neigh_size)
+        predictions = predict(
+            model, test.data, Dataset.LETTERS_NODIA, neigh_size)
+        print(accuracy(predictions, test.target))
+
 
         return predictions
 

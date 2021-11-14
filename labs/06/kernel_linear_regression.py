@@ -54,16 +54,34 @@ def main(args: argparse.Namespace) -> tuple[list[float], list[float]]:
     # After each iteration, compute RMSE both on training and testing data.
     train_rmses, test_rmses = [], []
 
+
+
+    K_matrix = 0
+    if(args.kernel == "poly"):
+        K_matrix = np.power(args.kernel_gamma * train_data.T@train_data + 1, args.kernel_degree)
+        def Kernel(x, y):
+            return np.power(args.kernel_gamma * x@y + 1, args.kernel_degree)
+
+    if(args.kernel == "rbg"):
+        K_matrix = np.array([[ np.exp(-args.kernel_gamma * (x-y) ** 2) for x in train_data] for y in train_data])
+        def Kernel(x, y):
+            return np.exp(-args.kernel_gamma * (x-y)**2)
+
+    bias = np.mean(train_data)
     for iteration in range(args.iterations):
         permutation = generator.permutation(train_data.shape[0])
-
+        for i in range(train_data.shape[0]//args.batch_size):
+            new_betas_i = (K_matrix[permutation[i]] @ betas + bias - train_target[[permutation[i]]])*args.learning_rate/args.batch_size
+            new_betas_reg = args.learning_rate * args.l2
+            betas -= new_betas_i - new_betas_reg
         # TODO: Process the data in the order of `permutation`, performing
         # batched updates to the `betas`. You can assume that `args.batch_size`
         # exactly divides `train_data.shape[0]`.
 
         # TODO: Append RMSE on training and testing data to `train_rmses` and
         # `test_rmses` after the iteration.
-
+        results = np.array([[Kernel(test, train) + bias for train in train_data] for test in test_data])
+        test_rmses.append(sklearn.metrics.mean_squared_error(results, train_target, squared=False))
         if (iteration + 1) % 10 == 0:
             print("Iteration {}, train RMSE {:.2f}, test RMSE {:.2f}".format(
                 iteration + 1, train_rmses[-1], test_rmses[-1]))
