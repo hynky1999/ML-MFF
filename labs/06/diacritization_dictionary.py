@@ -49,6 +49,7 @@ def diac_to_numbers(l):
         return 2
     return 0
 
+ZERO_CHAR = '\0'
 translate_carka = str.maketrans("aeiouy", "áéíóúý")
 translate_hacek = str.maketrans("cdenrstuz", "čďěňřšťůž")
 
@@ -91,15 +92,15 @@ class Dataset:
             self.target = dataset_file.read()
         self.data = self.target.translate(self.DIA_TO_NODIA)
 
-def prepare_data(unprepared_data, unprepared_target, allowed_letters, k):
+def prepare_data(unprepared_data, unprepared_target, allowed_letters, c, n):
     unprepared_data = str.translate(unprepared_data, str.maketrans('\n\0\t', "   ")).lower()
 
     data_text_vector = np.array(list(unprepared_data)).reshape([-1, 1])
     data_matrix = data_text_vector
 
-    left_matrix = np.empty(data_matrix.shape)
-    right_matrix = np.empty(data_matrix.shape)
-    for i in range(12):
+    left_matrix = np.empty([data_matrix.shape[0],0])
+    right_matrix = np.empty([data_matrix.shape[0],0])
+    for i in range(8 + c):
         left_side = np.pad(np.delete(data_matrix[:, 0], list(range(-1, -i -2, -1))), (i+1, 0), constant_values=(
             ' ', ' '), mode='constant',).reshape([-1, 1])
         left_matrix = np.concatenate([left_matrix, left_side], axis=1)
@@ -116,32 +117,36 @@ def prepare_data(unprepared_data, unprepared_target, allowed_letters, k):
         if letter in allowed_letters:
             indicies.append(i)
     
-    c = 2
-    left_outer_chars = np.zeros([len(indicies), c], dtype=str)
+    left_inner_chars = np.full([len(indicies), c], ZERO_CHAR)
+    left_outer_chars = np.full([len(indicies), n], ZERO_CHAR)
     for i,row in enumerate(left_matrix[indicies]):
         z = 0
         for z in range(0, len(row)):
-            if not row[z].isalpha():
-                break
-        for k in range(0, c):
-            left_outer_chars[i][k] = row[z+c]
+            if row[z].isalpha():
+                if z < c:
+                    left_inner_chars[i][z] = row[z]
 
-    right_outer_chars = np.zeros([len(indicies), c], dtype=str)
+            else:
+                break
+        for l in range(z, min(len(row)-z , n)):
+            left_outer_chars[i][l] = row[z+l]
+
+    right_inner_chars = np.full([len(indicies), c], ZERO_CHAR)
+    right_outer_chars = np.full([len(indicies), n], ZERO_CHAR)
     for i,row in enumerate(right_matrix[indicies]):
         z = 0
         for z in range(0, len(row)):
-            if not row[z].isalpha():
+            if row[z].isalpha():
+                if z < c:
+                    right_inner_chars[i][z] = row[z]
+
+            else:
                 break
-        for k in range(0, c):
-            right_outer_chars[i][k] = row[z+c]
+        for l in range(z, min(len(row)-z , n)):
+            right_outer_chars[i][l] = row[z+l]
 
-        
-        
-
-
-
-
-    data_matrix = data_matrix[indicies, :].view(np.int32)
+    data_matrix = np.concatenate([left_outer_chars, left_inner_chars, data_matrix[indicies, :], right_inner_chars, right_outer_chars], axis=1)
+    data_matrix = data_matrix.view(np.int32)
 
 
 
@@ -157,8 +162,8 @@ def prepare_data(unprepared_data, unprepared_target, allowed_letters, k):
     return data_matrix, target_vector
 
 
-def predict(model, data, allowed_letters, k):
-    diac_predictions_proba = model.predict_log_proba(prepare_data(data, [], allowed_letters, k))
+def predict(model, data, allowed_letters,c, n):
+    diac_predictions_proba = model.predict_log_proba(prepare_data(data, [], allowed_letters, c, n))
 
 
     diac_index = 0
@@ -229,7 +234,8 @@ parser.add_argument(
 
 
 def main(args: argparse.Namespace):
-    neigh_size = 7
+    core_size = 4
+    neigh_size = 4
 
     if args.predict is None:
         # We are training a model.
@@ -237,13 +243,9 @@ def main(args: argparse.Namespace):
         train = Dataset()
         data_selection = slice(0, len(train.data))
         data, target = prepare_data(
-            train.data[data_selection], train.target[data_selection], Dataset.LETTERS_NODIA, neigh_size,)
+            train.data[data_selection], train.target[data_selection], Dataset.LETTERS_NODIA, core_size, neigh_size)
 
         one_hot = sklearn.preprocessing.OneHotEncoder(handle_unknown="ignore")
-        column_enc = sklearn.compose.ColumnTransformer(
-            [
-            ]
-        )
         pipe = sklearn.pipeline.Pipeline([
             ("one_hot", one_hot),
             ("MLP", sklearn.neural_network.MLPClassifier(max_iter=30, verbose=True, hidden_layer_sizes=[500]))
@@ -254,6 +256,7 @@ def main(args: argparse.Namespace):
         # }],
         # cv=3,
         # verbose=1)
+        print("model fitting")
 
         model = pipe.fit(data, target)
 
@@ -281,7 +284,7 @@ def main(args: argparse.Namespace):
         # TODO: Generate `predictions` with the test set predictions. Specifically,
         # produce a diacritized `str` with exactly the same number of words as `test.data`.
         predictions = predict(
-            model, test.data, Dataset.LETTERS_NODIA, neigh_size)
+            model, test.data, Dataset.LETTERS_NODIA,core_size, neigh_size)
         print(accuracy(predictions, test.target))
 
 
