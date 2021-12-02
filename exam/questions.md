@@ -139,3 +139,72 @@
 - Describe the one-versus-one and one-versus-rest schemes of constructing
   a $K$-class classifier by combining multiple binary classifiers. [5]
 
+#### Questions@:, Lecture 8 Questions
+- Explain how is the TF-IDF weight of a given document-term computed. [5]
+
+- Define conditional entropy, mutual information, write down relation
+  between them, and finally prove that mutual information is zero
+  if and only if the two random variables are independent (you do not
+  need to prove statements about $D_\textrm{KL}$). [5]
+
+- Show that TF-IDF terms can be considered portions of a suitable mutual
+  information. [5]
+
+- Show that $L_2$-regularization can be obtained from a suitable prior
+  by Bayesian inference (from the MAP estimate). [5]
+
+- Write down how is $p(C_k | \boldsymbol x)$ approximated in a Naive Bayes
+  classifier, explicitly state the Naive Bayes assumption, and show how
+  prediction is performed. [5]
+
+- Considering a Gaussian naive Bayes, describe how are $p(x_i | C_k)$ modeled
+  (what distribution and which parameters does it have) and how we estimate it
+  during fitting. [5]
+
+- Considering a Multinomial naive Bayes, describe how are
+  $p(\boldsymbol x | C_k)$ modeled (what distribution and which parameters does
+  it have) and how we estimate it during fitting. [5]
+
+- Considering a Bernoulli naive Bayes, describe how are $p(x_i | C_k)$ modeled
+  (what distribution and which parameters does it have) and how we estimate it
+  during fitting. [5]
+
+- Describe the difference between a generative and a discriminative model,
+  the strengths of these models, and explain why is logistic regression
+  and multinomial/Bernoulli naive Bayes called a generative-discriminative pair.
+  [5]
+
+#### Questions@:, Lecture 9 Questions
+- Prove that independent discrete random variables are uncorrelated. [5]
+
+- Write down the definition of covariance and Pearson correlation coefficient
+  $\rho$, including its range. [5]
+
+- Explain how are the Spearman's rank correlation coefficient and the Kendall
+  rank correlation coefficient computed (no need to describe the Pearson
+  correlation coefficient). [5]
+
+- Considering an averaging ensemble of $M$ models, prove the relation between
+  the average mean squared error of the ensemble and the average error of the
+  individual models, assuming the model errors have zero mean and are
+  uncorrelated. [10]
+
+- In a regression decision tree, state what values are kept in internal nodes,
+  define the squared error criterion and describe how a leaf is split during
+  training (without discussing splitting constraints). [5]
+
+- In a $K$-class classification decision tree, state what values are kept in
+  internal nodes, define the Gini index and describe how a node is split during
+  training (without discussing splitting constraints). [5]
+
+- In a $K$-class classification decision tree, state what values are kept in
+  internal nodes, define the entropy criterion and describe how a node is split during
+  training (without discussing splitting constraints). [5]
+
+- For binary classification, derive the Gini index from a squared error loss. [10]
+
+- For $K$-class classification, derive the entropy criterion from a non-averaged
+  NLL loss. [10]
+
+- Describe how is a random forest trained (including bagging and random subset
+  of features) and how is prediction performed for regression and classification. [10]
