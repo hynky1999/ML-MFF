@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import sys
 import urllib.request
 
 import numpy as np
@@ -19,7 +20,7 @@ class MNIST:
                  data_size=None,
                  url="https://ufal.mff.cuni.cz/~straka/courses/npfl129/2122/datasets/"):
         if not os.path.exists(name):
-            print("Downloading dataset {}...".format(name))
+            print("Downloading dataset {}...".format(name), file=sys.stderr)
             urllib.request.urlretrieve(url + name, filename=name)
 
         # Load the dataset, i.e., `data` and optionally `target`.
@@ -93,7 +94,7 @@ def main(args: argparse.Namespace) -> float:
         test_predictions[i] = prediction
 
     #
-    # Find `args.k` nearest neighbors, choosing the ones with smallest train_data
+    # Find `args.k` nearest neighbors, choosing the ones with the smallest train_data
     # indices in case of ties. Use the most frequent class (optionally weighted
     # by a given scheme described below) as prediction, choosing the one with the
     # smallest class index when there are multiple classes with the same frequency.
@@ -105,8 +106,12 @@ def main(args: argparse.Namespace) -> float:
     # - "inverse": `1/distances` is used as weights
     # - "softmax": `softmax(-distances)` is used as weights
     #
+<<<<<<< HEAD
 
     # If you want to plot misclassified examples, you need to also fill `test_neighbors`
+=======
+    # If you want to plot misclassified examples, you also need to fill `test_neighbors`
+>>>>>>> 755df5576580b7b93a5d0a120f14bafd9633c1a2
     # with indices of nearest neighbors; but it is not needed for passing in ReCodEx.
 
     accuracy = sklearn.metrics.accuracy_score(test_target, test_predictions)

@@ -22,6 +22,7 @@ import enum
 import lzma
 import pickle
 import os
+import sys
 import urllib.request
 from numpy.core.fromnumeric import argmax
 import sklearn.compose
@@ -65,7 +66,7 @@ class Dataset:
                  name="fiction-train.txt",
                  url="https://ufal.mff.cuni.cz/~straka/courses/npfl129/2122/datasets/"):
         if not os.path.exists(name):
-            print("Downloading dataset {}...".format(name))
+            print("Downloading dataset {}...".format(name), file=sys.stderr)
             urllib.request.urlretrieve(url + name, filename=name)
             urllib.request.urlretrieve(
                 url + name.replace(".txt", ".LICENSE"), filename=name.replace(".txt", ".LICENSE"))
