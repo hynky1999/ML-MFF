@@ -208,3 +208,60 @@
 
 - Describe how is a random forest trained (including bagging and random subset
   of features) and how is prediction performed for regression and classification. [10]
+
+#### Questions@:, Lecture 10 Questions
+- Write down the loss function which we optimize in gradient boosting decision
+  tree during the construction of $t^\mathrm{th}$ tree. Then define $g_i$
+  and $h_i$ and show the value $w_\mathcal{T}$ of optimal prediction in node
+  $\mathcal{T}$. [10]
+
+- Write down the loss function which we optimize in gradient boosting decision
+  tree during the construction of $t^\mathrm{th}$ tree. Then define $g_i$
+  and $h_i$ and the criterion used during node splitting. [10]
+
+- How is the learning rate used during training and prediction of a gradient
+  boosting decision tree? [5]
+
+- For a $K$-class classification, describe how to perform prediction with
+  a gradient boosting decision tree trained for $T$ timestamps (how the
+  individual trees perform prediction and how are the $K \cdot T$ trees
+  combined to produce the predicted categorical distribution). [5]
+
+- Considering a $K$-class classification, describe which individual trees (and
+  in which order) are created during gradient boosted decision tree training,
+  and what per-example loss is used for training every one of them (expressed
+  using predictions of the already trained trees). You do not need to describe
+  the training process of the individual trees themselves. [10]
+
+#### Questions@:, Lecture 11 Questions
+- When deriving the first principal component, write the value of the
+  variance we aim to maximize, both without and with the covariance matrix
+  (and define the covariance matrix). [5]
+
+- When deriving the first $M$ principal components, write the value of the
+  reconstruction loss we aim to minimize using all but the first $M$ principal
+  components, both without and with the covariance matrix (and define the
+  covariance matrix). [10]
+
+- Write down the formula for whitening (sphering) the data matrix $\boldsymbol X$,
+  and state what mean and covariance does the result has. [5]
+
+- Explain how to compute the first $M$ principal components using the SVD
+  decomposition of the centered data matrix $\boldsymbol X$. [5]
+
+- Write down the algorithm of computing the first $M$ principal components
+  of the data matrix $\boldsymbol X$ using the power iteration algorithm. [10]
+
+- Describe the K-means algorithm, including the `kmeans++` initialization. [10]
+
+- Define the multivariate Gaussian distribution of dimension $D$. [5]
+
+- Show how to sample from a multivariate Gaussian distribution
+  $\mathcal{N}(\boldsymbol \mu, \boldsymbol \Sigma)$ with a full covariance
+  matrix, by using random samples from $\mathcal{N}(0, \boldsymbol I)$
+  distribution. [5]
+
+- Describe the constant surfaces of a multivariate Gaussian distribution with
+  (1) $\sigma^2 \boldsymbol I$ covariation, (2) a diagonal covariation matrix,
+  (3) a full covariation matrix. [5]
+

@@ -56,8 +56,13 @@ def main(args: argparse.Namespace) -> tuple[float, float]:
         # Bootstrap sample of the dataset
         sentences = generator.choice(data.sentences, size=len(data.sentences), replace=True)
 
+<<<<<<< HEAD
         # TODO: Append the averate of human ratings of `sentences` to `humans`.
         human_ratings.append(np.mean(list(map(lambda x: x.human_rating,sentences))))
+=======
+        # TODO: Append the average of human ratings of `sentences` to `humans`.
+        human_ratings.append(...)
+>>>>>>> e6505da59fbb036fec969502e355c21f05a7e858
 
         # TODO: Compute TP, FP, FN counts of predicted edits in `sentences`
         # and append them to `predictions`.

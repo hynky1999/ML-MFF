@@ -80,6 +80,7 @@ def main(args: argparse.Namespace) -> float:
     #   Because Bernoulli NB works with binary data, binarize the features as
     #   [feature_value >= 8], i.e., consider a feature as one iff it is >= 8,
     #   during both estimation and prediction.
+<<<<<<< HEAD
     results = np.zeros([len(test_data)])
 
     if args.naive_bayes_type == 'gaussian':
@@ -104,6 +105,10 @@ def main(args: argparse.Namespace) -> float:
                 test_values[class_i] = scipy.stats.multinomial.logpmf(test_data[i], n=np.sum(test_data[i]) ,p=weights[class_i][0]) + log_class_probs[class_i]
             results[i] = np.argmax(test_values)
 
+=======
+    #
+    # In all cases, the class prior is the distribution of the train data classes.
+>>>>>>> e6505da59fbb036fec969502e355c21f05a7e858
 
     # TODO: Predict the test data classes and compute test accuracy.
 

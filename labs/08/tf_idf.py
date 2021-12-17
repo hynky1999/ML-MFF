@@ -56,7 +56,7 @@ def main(args: argparse.Namespace) -> float:
         newsgroups.data, newsgroups.target, test_size=args.test_size, random_state=args.seed)
 
     # TODO: Create a feature for every word that is present at least twice
-    # in the training data. A word is every sequence of at least 2 word characters,
+    # in the training data. A word is every maximal sequence of at least 2 word characters,
     # where a word character corresponds to a regular expression `\w`.
     def get_features(data, allowed_words=[], idf_values = []):
         doc_words = []
@@ -135,21 +135,21 @@ def main(args: argparse.Namespace) -> float:
                     features[doc_i, w_index] = 1
         return features
 
-    # TODO: Weight the selected features using
-    # - term frequency (TF), if `args.tf` is set;
-    # - inverse document frequency (IDF), if `args.idf` is set; use
-    #   the variant which contains `+1` in the denominator;
-    # - TF * IDF, if both `args.tf` and `args.idf` are set;
-    # - binary indicators, if nether `args.tf` nor `args.idf` are set.
-    # Note that IDFs are computed on the train set and then reused without
-    # modification on the test set, while TF is computed for every document separately.
+    # TODO: For each document, compute its features as
+    # - term frequency(TF), if `args.tf` is set;
+    # - otherwise, use binary indicators (1 if a given term is present, else 0)
     #
-    # Finally, for each document L2-normalize its features.
+    # Then, if `args.idf` is set, multiply the document features by the
+    # inverse document frequencies (IDF), where
+    # - use the variant which contains `+1` in the denominator;
+    # - the IDFs are computed on the train set and then reused without
+    #   modification on the test set.
 
     # TODO: Perform classification of the test set using the k-NN algorithm
     # from sklearn (pass the `algorithm="brute"` option), with `args.k` nearest
-    # neighbors determined using the cosine similarity, where
+    # neighbors. For TF-IDF vectors, the cosine similarity is usually used, where
     #   cosine_similarity(x, y) = x^T y / (||x|| * ||y||).
+<<<<<<< HEAD
     # Note that for L2-normalized data (which we have), the nearest neighbors
     # are equivalent to using the usual Euclidean distance (L2 distance).
     
@@ -158,6 +158,16 @@ def main(args: argparse.Namespace) -> float:
     test_features, _, _ = get_features(test_data, allowed_words=allowed_words, idf_values=idf_values)
     model = sklearn.neighbors.KNeighborsClassifier(n_neighbors=args.k, algorithm="brute", metric="euclidean").fit(train_features, train_target)
     result = model.predict(test_features)
+=======
+    #
+    # To employ this metric, you have several options:
+    # - you could try finding out whether `KNeighborsClassifier` supports it directly;
+    # - or you could compute it yourself, but if you do, you have to precompute it
+    #   in a vectorized way, so using `metric="precomputed"` is fine, but passing
+    #   a callable as the `metric` argument is not (it is too slow);
+    # - finally, the nearest neighbors according to cosine_similarity are equivalent to
+    #   the neighbors obtained by the usual Euclidean distance on L2-normalized vectors.
+>>>>>>> e6505da59fbb036fec969502e355c21f05a7e858
 
     # TODO: Evaluate the performance using macro-averaged F1 score.
     f1_score = sklearn.metrics.f1_score(test_target, result,average="macro")
