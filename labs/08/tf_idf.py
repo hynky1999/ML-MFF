@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
+# Authors:
+#
+# Hynek Kydlicek
+# bb506e12-05bd-11eb-9574-ea7484399335
+#
+# Ondrej Krsicka
+# 7360531e-00a2-11eb-9574-ea7484399335
 import argparse
 import lzma
 import pickle
 import os
 import sys
 import urllib.request
+import re
 
 import numpy as np
 import sklearn.metrics
@@ -50,6 +58,82 @@ def main(args: argparse.Namespace) -> float:
     # TODO: Create a feature for every word that is present at least twice
     # in the training data. A word is every sequence of at least 2 word characters,
     # where a word character corresponds to a regular expression `\w`.
+    def get_features(data, allowed_words=[], idf_values = []):
+        doc_words = []
+        all_words = []
+
+        for doc in data:
+            words_in_doc = re.findall("\w\w+", doc)
+            doc_words.append(words_in_doc)
+            all_words.extend(words_in_doc)
+
+
+    
+        if not allowed_words:
+            words, counts = np.unique( all_words, return_counts=True)
+            unique_words = filter(lambda x: x[1] >= 2, zip(words, counts))
+            unique_words_dict = { w:i for i, w in enumerate(map(lambda x: x[0], unique_words)) }
+            allowed_words = unique_words_dict
+
+        if not len(idf_values) > 0 and args.idf:
+            idf_counts = np.zeros([len(allowed_words)])
+            for doc in doc_words:
+                words = np.unique(doc)
+                for w in words:
+                    w_index = allowed_words.get(w, -1)
+                    if w_index != -1:
+                        idf_counts[w_index] += 1;
+
+            idf_values = np.log(len(doc_words)/(idf_counts + 1))
+
+
+        features = []
+        if args.idf and args.tf:
+            features = get_idf_features(allowed_words, doc_words, idf_values) * get_tf_features(allowed_words, doc_words)
+
+        if args.idf and not args.tf:
+            features = get_idf_features(allowed_words, doc_words, idf_values)
+
+        if not args.idf and args.tf:
+            features = get_tf_features(allowed_words, doc_words)
+
+        if not args.idf and not args.tf:
+            features = get_bin_features(allowed_words, doc_words)
+
+        
+        return  features/np.linalg.norm(features, axis=1, ord=2).reshape([len(data),1]), allowed_words, idf_values
+
+        
+    def get_tf_features(word_index, docs):
+        features = np.zeros([len(docs), len(word_index)])
+        for doc_i in range(len(docs)):
+            uniq_words, counts = np.unique(docs[doc_i], return_counts=True)
+            for  uniq_i, uniq_w, in enumerate(uniq_words):
+                w_index = word_index.get(uniq_w, -1)
+                if(w_index != -1):
+                    features[doc_i, w_index] = counts[uniq_i]
+        return features
+
+
+    def get_idf_features(word_index, docs, idf_values):
+
+        features = np.zeros([len(docs), len(word_index)])
+        for doc_i in range(len(docs)):
+            for word in docs[doc_i]:
+                w_index = word_index.get(word, -1)
+                if(w_index != -1):
+                    features[doc_i, w_index] = idf_values[w_index]
+
+        return features
+    
+    def get_bin_features(word_index, docs):
+        features = np.zeros([len(docs), len(word_index)])
+        for doc_i in range(len(docs)):
+            for word in docs[doc_i]:
+                w_index = word_index.get(word, -1)
+                if(w_index != -1):
+                    features[doc_i, w_index] = 1
+        return features
 
     # TODO: Weight the selected features using
     # - term frequency (TF), if `args.tf` is set;
@@ -68,10 +152,15 @@ def main(args: argparse.Namespace) -> float:
     #   cosine_similarity(x, y) = x^T y / (||x|| * ||y||).
     # Note that for L2-normalized data (which we have), the nearest neighbors
     # are equivalent to using the usual Euclidean distance (L2 distance).
+    
+    
+    train_features, allowed_words, idf_values = get_features(train_data)
+    test_features, _, _ = get_features(test_data, allowed_words=allowed_words, idf_values=idf_values)
+    model = sklearn.neighbors.KNeighborsClassifier(n_neighbors=args.k, algorithm="brute", metric="euclidean").fit(train_features, train_target)
+    result = model.predict(test_features)
 
     # TODO: Evaluate the performance using macro-averaged F1 score.
-    f1_score = None
-
+    f1_score = sklearn.metrics.f1_score(test_target, result,average="macro")
     return f1_score
 
 if __name__ == "__main__":

@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
+# Authors:
+#
+# Hynek Kydlicek
+# bb506e12-05bd-11eb-9574-ea7484399335
+#
+# Ondrej Krsicka
+# 7360531e-00a2-11eb-9574-ea7484399335
 import argparse
 import dataclasses
+from collections import namedtuple
 
 import numpy as np
 
@@ -49,23 +57,34 @@ def main(args: argparse.Namespace) -> tuple[float, float]:
         sentences = generator.choice(data.sentences, size=len(data.sentences), replace=True)
 
         # TODO: Append the averate of human ratings of `sentences` to `humans`.
-        human_ratings.append(...)
+        human_ratings.append(np.mean(list(map(lambda x: x.human_rating,sentences))))
 
         # TODO: Compute TP, FP, FN counts of predicted edits in `sentences`
         # and append them to `predictions`.
-        predictions.append(...)
+
+        TP = np.sum(list(map(lambda x: x.predicted_correct, sentences)))
+        FP = np.sum(list(map(lambda x: x.predicted_edits - x.predicted_correct, sentences)))
+        FN = np.sum(list(map(lambda x: x.gold_edits - x.predicted_correct, sentences)))
+        score_tuple = namedtuple('score_tuple', 'TP FP FN')
+        predictions.append(score_tuple(TP, FP, FN))
 
     # Compute Pearson correlation between F_beta score and human ratings
     # for betas between 0 and 2.
     betas, correlations = [], []
     for beta in np.linspace(0, 2, 201):
         betas.append(beta)
+        f_betas = []
+        for sample in predictions:
+            F_beta = (1 + beta**2)*sample.TP/((1+beta**2)*sample.TP + beta**2 * sample.FN + sample.FP)
+            f_betas.append(F_beta)
 
         # TODO: For each bootstap dataset, compute the F_beta score using
         # the counts in `predictions` and then manually compute the Pearson
         # correlation between the computed scores and `human_ratings`. Append
         # the result to `correlations`.
-        correlations.append(...)
+        upper = np.sum((np.array(f_betas) - np.mean(f_betas)) * (np.array(human_ratings) - np.mean(human_ratings)))
+        lower = np.sqrt(np.sum(np.power(np.array(f_betas) - np.mean(f_betas), 2))) * np.sqrt(np.sum(np.power(np.array(human_ratings) - np.mean(human_ratings), 2)))
+        correlations.append(upper/lower)
 
     if args.plot:
         import matplotlib.pyplot as plt
@@ -77,7 +96,8 @@ def main(args: argparse.Namespace) -> tuple[float, float]:
 
     # TODO: Assign the highest correlation to `best_correlation` and
     # store corresponding beta to `best_beta`.
-    best_beta, best_correlation = ...
+    best_arg = np.argmax(correlations)
+    best_beta, best_correlation = betas[best_arg], correlations[best_arg]
 
     return best_beta, best_correlation
 

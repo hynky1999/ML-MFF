@@ -8,6 +8,10 @@ import sys
 
 import numpy as np
 import pandas as pd
+import sklearn.ensemble
+import sklearn.pipeline
+import sklearn.model_selection
+import sklearn.metrics
 
 
 class Dataset:
@@ -41,7 +45,17 @@ def main(args: argparse.Namespace):
         train = Dataset()
 
         # TODO: Train a model on the given dataset and store it in `model`.
-        model = None
+        pipe = sklearn.pipeline.Pipeline([
+            ("decision_tree", sklearn.ensemble.RandomForestClassifier())
+        ])
+
+        grid = sklearn.model_selection.GridSearchCV(pipe, [{
+            "decision_tree__criterion": ['gini', 'entropy'],
+            "decision_tree__n_estimators": [100, 200, 500],
+
+        }], scoring="accuracy", verbose=3, cv=5)
+
+        model = grid.fit(train.data, train.target)
 
         # Serialize the model.
         with lzma.open(args.model_path, "wb") as model_file:
@@ -56,7 +70,8 @@ def main(args: argparse.Namespace):
 
         # TODO: Generate `predictions` with the test set predictions, either
         # as a Python list or a NumPy array.
-        predictions = None
+        predictions = model.predict(test.data)
+        #print(sklearn.metrics.accuracy_score(predictions, test.target))
 
         return predictions
 

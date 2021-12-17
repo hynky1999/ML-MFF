@@ -1,7 +1,20 @@
 #!/usr/bin/env python3
+# Authors:
+#
+# Hynek Kydlicek
+# bb506e12-05bd-11eb-9574-ea7484399335
+#
+# Ondrej Krsicka
+# 7360531e-00a2-11eb-9574-ea7484399335
 import argparse
+from bisect import bisect
+from collections import deque
+from sys import maxsize
+from typing import List, NamedTuple
 
 import numpy as np
+from numpy.core.fromnumeric import argmax
+from sklearn import tree
 import sklearn.datasets
 import sklearn.metrics
 import sklearn.model_selection
@@ -37,6 +50,126 @@ def main(args: argparse.Namespace) -> tuple[float, float]:
         return generator_bootstrapping.choice(len(train_data), size=len(train_data), replace=True)
 
     # TODO: Create a random forest on the trainining data.
+
+    class DecisionNode():
+        def __init__(self, instances, depth):
+            self.instances = instances
+            self.depth = depth
+            self.prediction = self.get_prediction(instances)
+            self.left = None
+            self.right = None
+            self.criterion = self.entropy_criterion(instances)
+
+
+        def split(self,feature_i, feature_value):
+            self.decision_feature = feature_i
+            self.decision_value = feature_value
+
+            sorted_instances = sorted(self.instances,key=lambda x: x.dato[feature_i])
+            right_half_index = bisect(list(map(lambda x: x.dato[feature_i],sorted_instances)), feature_value)
+            self.left = DecisionNode(sorted_instances[:right_half_index], self.depth + 1)
+            self.right = DecisionNode(sorted_instances[right_half_index:], self.depth + 1)
+
+
+        def get_prediction(self, arr):
+            class_array = list(map(lambda x: x.c_class, arr))
+            values, counts = np.unique(class_array, return_counts=True)
+            return  values[np.argmax(counts)]
+
+        def gini_criterion(self, arr):
+            class_array = list(map(lambda x: x.c_class, arr))
+            _, counts = np.unique(class_array, return_counts=True)
+            counts = np.array(counts)/len(class_array)
+            return np.sum(counts * (1- counts)) * len(class_array)
+
+        def entropy_criterion(self, arr):
+            class_array = list(map(lambda x: x.c_class, arr))
+            _, counts = np.unique(class_array, return_counts=True)
+            counts = np.array(counts)/len(class_array)
+            return np.sum(counts * np.log(counts)) * -len(class_array)
+
+        def can_split(self):
+            if self.criterion == 0:
+                return False
+
+            if len(self.instances) < 2:
+                return False
+
+            if args.max_depth and self.depth >= args.max_depth:
+                return False
+
+            return True
+
+
+        def smallest_split_criterion(self):
+            best_feature, best_value, best_crit_value = 0,0, maxsize
+            feature_map = subsample_features(len(self.instances[0].dato))
+            for i in range(len(self.instances[0].dato)):
+                if(feature_map[i] == False):
+                    continue
+
+                sorted_instances = sorted(self.instances,key=lambda x: x.dato[i])
+
+                left_side = []
+                right_side = deque(sorted_instances);
+                while len(right_side) > 1:
+                    left_side.append(right_side.popleft())
+                    a = left_side[-1].dato[i]
+                    b = right_side[0].dato[i]
+                    if(a != b):
+                        val = self.entropy_criterion(left_side) + self.entropy_criterion(right_side)
+
+                        if(val < best_crit_value):
+                            best_feature = i
+                            best_value = (a+b)/2
+                            best_crit_value = val
+            return best_feature, best_value, best_crit_value
+
+
+        def predict(self,x):
+            if self.left != None:
+                if(x[self.decision_feature] <= self.decision_value):
+                    return self.left.predict(x)
+                else:
+                    return self.right.predict(x)
+            
+            return self.prediction
+
+    class DecisionTreeMaker():
+        def __init__(self, data, target):
+
+            instances = []
+            for i in range(data.shape[0]):
+                instances.append(DatoWithClass(data[i], target[i]))
+
+            self.root = DecisionNode(instances, 0)
+
+
+        def build(self):
+            stack = []
+            stack.append(self.root)
+            while(len(stack) > 0):
+                node = stack.pop()
+                if(not node.can_split()):
+                    continue
+
+                best_feature, best_value, crit_value = node.smallest_split_criterion()
+                node.split(best_feature, best_value)
+                stack.append(node.right)
+                stack.append(node.left)
+
+        def predict(self,x):
+            return self.root.predict(x)
+
+
+
+    class DatoWithClass(NamedTuple):
+        dato : List[int]
+        c_class : int
+
+
+
+
     #
     # Use a simplified decision tree from the `decision_tree` assignment:
     # - use `entropy` as the criterion
@@ -57,6 +190,8 @@ def main(args: argparse.Namespace) -> tuple[float, float]:
     #   (i.e., when feature_subsampling == 1, all features are used).
     #
     # - train a random forest consisting of `args.trees` decision trees
+
+
     #
     # - if `args.bagging` is set, before training each decision tree
     #   create a bootstrap sample of the training data by calling
@@ -67,8 +202,29 @@ def main(args: argparse.Namespace) -> tuple[float, float]:
     # input, choosing the one with smallest class index in case of a tie.
 
     # TODO: Finally, measure the training and testing accuracy.
-    train_accuracy = None
-    test_accuracy = None
+    trees = []
+    for _ in range(args.trees):
+        tree_data = train_data
+        tree_target = train_target
+        if(args.bagging):
+            indexes = bootstrap_dataset(train_data)
+            tree_data = train_data[indexes, :]
+            tree_target = train_target[indexes]
+        tree = DecisionTreeMaker(tree_data, tree_target)
+        tree.build()
+        trees.append(tree)
+    
+    train_results = []
+    for dato in train_data:
+        train_results.append(np.argmax(np.bincount([tr.predict(dato) for tr in trees])))
+
+    test_results = []
+    for dato in test_data:
+        test_results.append(np.argmax(np.bincount([tr.predict(dato) for tr in trees])))
+
+
+    train_accuracy = sklearn.metrics.accuracy_score(train_results, train_target)
+    test_accuracy = sklearn.metrics.accuracy_score(test_results, test_target)
 
     return train_accuracy, test_accuracy
 

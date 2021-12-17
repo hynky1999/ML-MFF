@@ -1,10 +1,23 @@
 #!/usr/bin/env python3
+# Authors:
+#
+# Hynek Kydlicek
+# bb506e12-05bd-11eb-9574-ea7484399335
+#
+# Ondrej Krsicka
+# 7360531e-00a2-11eb-9574-ea7484399335
 import argparse
 import lzma
 import pickle
 import os
 import urllib.request
 import sys
+from numpy.core.defchararray import mod
+import sklearn.feature_extraction
+import sklearn.naive_bayes
+import sklearn.model_selection
+import sklearn.pipeline
+import sklearn.metrics
 
 import numpy as np
 
@@ -44,6 +57,24 @@ def main(args: argparse.Namespace):
 
         # TODO: Train a model on the given dataset and store it in `model`.
         model = None
+        pipe = sklearn.pipeline.Pipeline([
+            ('count', sklearn.feature_extraction.text.CountVectorizer()),
+            ('tfid', sklearn.feature_extraction.text.TfidfTransformer()),
+            ("bayes", sklearn.naive_bayes.MultinomialNB())
+        ])
+
+        grid = sklearn.model_selection.GridSearchCV(pipe, [{
+            "bayes__alpha": [0.1, 0.5, 0.75, 0.5, 1.2, 1, 10],
+            "count__min_df": [1,2],
+            "count__strip_accents": ["unicode", None],
+            "count__lowercase": [True, False],
+            "count__stop_words": [None, "english"],
+            "count__token_pattern": [r"(?u)\b\w\w+\b",  r"(?u)(?:\b\w\w+\b)|(?:[\U0001F600-\U0001F64F]|[\U0001F300-\U0001F5FF]|[\U0001F680-\U0001F6FF])"],
+
+        }], scoring="f1", verbose=3, cv=20)
+
+        model = grid.fit(train.data, train.target)
+
 
         # Serialize the model.
         with lzma.open(args.model_path, "wb") as model_file:
@@ -52,13 +83,18 @@ def main(args: argparse.Namespace):
     else:
         # Use the model and return test set predictions.
         test = Dataset(args.predict)
+        test.data = np.array(["Dogs are the best kind of humans"])
 
         with lzma.open(args.model_path, "rb") as model_file:
             model = pickle.load(model_file)
 
         # TODO: Generate `predictions` with the test set predictions, either
         # as a Python list or a NumPy array.
-        predictions = None
+        predictions = model.predict(test.data)
+        print(predictions)
+        # print(model.best_params_)
+        # print(sklearn.metrics.f1_score(test.target, predictions))
+
 
         return predictions
 
