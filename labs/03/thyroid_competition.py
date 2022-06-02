@@ -67,7 +67,7 @@ def main(args: argparse.Namespace):
         pipe = sklearn.pipeline.Pipeline([
             ("column_enc", column_enc),
             ("polynomial", sklearn.preprocessing.PolynomialFeatures()),
-            ("regression", sklearn.linear_model.LogisticRegression(random_state=args.seed, max_iter=10000))
+            ("regression", sklearn.linear_model.LogisticRegression(random_state=args.seed, max_iter=10000, verbose=True))
             ])
 
         
